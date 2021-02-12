@@ -1,0 +1,306 @@
+<style>
+    .Llamado{
+        background-color:yellow;
+    }
+</style>
+<div class="class="jumbotron py-3" id="jumbo">
+    <h3 class="text-center" id="sucursal" data-idsucursal="" data-id-sucursal="undefined">Atención de Turnos SBS </h3>
+    <h5 class="mb-5 text-right">Filas atendidas: <a href="index.html?p=atención" title="Cambiar"><span id="filasatendidas"></span></a></h5>
+
+    <h5 id="turnosrecientes">Últimos turnos</h5>
+    <table class="table table-bordered table-condensed table-sm bg-white text-center" id="tablaturnos">
+        <thead class="thead-dark"><tr><th>Turno</th><th>Fila</th><th>Hora Pedido</th><th>Hora Atención</th><th>Estado</th><th>Acción</th></tr></thead>
+        <tbody></tbody>
+    </table>
+    <div class="card">
+        <div class="card-body text-center">
+            <h5 class="card-title text-left" id="titupuesto">Turnos Web</h5>
+            <div class="card-turno my-3"  id="turnopuesto">Estado Actual: <span id="estadopuesto"></span></div>
+            <button class="btn btn-lg btn-success mx-3" onclick="llamarTurno( puestoId , 'Llamado')" id="btnllamar"><i class="fas fa-bell"></i> Llamar</button>
+            <button class="btn btn-lg btn-warning mx-3" onclick="setTurno( puestoId , 'Perdido')" data-turno="" id="btnperdido"><i class="fas fa-bed"></i> Perdido</button>
+            <button class="btn btn-lg btn-primary mx-3" onclick="setTurno( puestoId , 'Atendido')" data-turno="" id="btnatendido"><i class="fas fa-check"></i> Atendido</button>
+        </div>
+    </div>
+</div>
+<script>
+
+    const sucursal=document.querySelector("#sucursal");
+    const jumbo=document.querySelector("#jumbo");
+    const tablaturnos=document.querySelector("#tablaturnos tbody");
+    const puestoNombre={null:""};
+    let puestoId=0;
+    let sessdata=localStorage.getItem("sessdata");
+    let filas_suc=[];
+    let filas_box=[];
+    let jsonant;
+    let datasucursal={};
+
+    function inicioApp(){
+        if(sessdata != null){
+            sessdata=JSON.parse(sessdata);
+            if(sessdata.nivel == "Sucursal"){
+                $.ajax({
+                    url:"jsonabm.php?tipo=horarios&idsuc=" + sessdata.sucursal
+                }).done(function(resp){
+                    datasucursal=resp.data;
+                    filas_suc=resp.data.filas;
+                    var cad="";
+                    var puestos=resp.data.puestos_suc;
+                    for(var i in puestos){
+                        if(puestos[i].usuario == sessdata.id){
+                            puestoId=puestos[i].id;
+                            filas_box=puestos[i].filas.split(",");
+                        }
+                        puestoNombre[puestos[i].id]=puestos[i].nombre;
+                    }
+                    var arrfilas=[];
+                    var arrfilastalonario=[];
+                    for(var i in filas_suc){
+                        if(filas_box.indexOf(filas_suc[i].id) != -1){
+                            arrfilas.push(filas_suc[i].nombre);
+                            if(filas_suc[i].tipo === "Manual")
+                                addPanelTalonario(filas_suc[i]);
+                        }   
+                    }
+                    $("#filasatendidas").html(arrfilas.join(", "));
+                    $("#sucursal").html('<strong>'+sessdata.nombre+'</strong>');
+                    if(arrfilas.length == 0){
+                        alerta("Error","Sin filas que atender. Ir a <strong>Atención</strong> y revisar el puesto.");
+                        return;
+                    }
+                    refrescoTimer();
+                });
+            }
+        }else{ 
+            alerta("Error","No logueado.");
+            return false;
+        }
+
+
+    }
+    inicioApp();
+
+
+    function refrescoTimer(){
+        leoDatos();
+        setTimeout("refrescoTimer()",5000);
+    }
+
+    function leoDatos(){
+        var url="jsonturnos.php?sucursal=" + sessdata.sucursal + "&filas=" + filas_box.join(",");
+        $('#loading').addClass("d-none");
+        $.ajax({
+            url:url
+        }).done(function(resp){
+            if(JSON.stringify(resp) != JSON.stringify(jsonant)){
+                armoTablaTurnos(resp);
+                jsonant=resp;
+            }
+            $('#loading').removeClass("d-none");
+        });
+
+    }
+
+    function armoTablaTurnos(obj){
+        console.log("obj");
+        console.log(obj);
+        let cad='';
+        let atendiendo={};
+        let llamado={};
+        let enespera=[];
+        for(let i = 0 ; i < obj.length ; i++){
+            var est="";
+            if(obj[i].estado == "Atendido")
+                est='<i class="fas fa-check"></i> ' + puestoNombre[obj[i].puesto];
+            if(obj[i].estado == "Llamado"){
+                est='<i class="fas fa-bell"></i> ' + puestoNombre[obj[i].puesto];
+                if(obj[i].puesto == puestoId){
+                    llamado={id:obj[i].id, estado:obj[i].estado , codigo: obj[i].codigo};
+                }
+            }
+            if(obj[i].estado == "Perdido")
+                est='<i class="fas fa-bed"></i> ' + puestoNombre[obj[i].puesto];
+            if(obj[i].estado == "Pedido"){
+                if(obj[i].espera < 0){
+                   est='<i class="far fa-clock"></i> Esperando';
+                   enespera.push(obj[i].codigo);
+                }else
+                    est='Agendado ' + obj[i].horapedidof.substr(6) + " hs";
+            }
+            
+            if(obj[i].puesto == puestoId){
+                atendiendo={id:obj[i].id, estado:obj[i].estado , codigo: obj[i].codigo};
+            }
+            let filacodret=obj[i].filanombre + ((obj[i].codretiro != "")?(' (cod: '+obj[i].codretiro+')'):(''));
+            cad+='<tr data-idturno="'+ obj[i].id +'" class="'+obj[i].estado +'"><td>'+obj[i].codigo +'</td><td>'+filacodret +'</td>';
+            cad+='<td>'+ obj[i].horapedidof.substr(6) +'</td><td>'+ ((obj[i].horaatencion == null)?(""):(obj[i].horaatencion.substr(11,5))) +'</td>';
+            cad+='<td>'+ est +'</td><td><button class="btn btn-info manual"><i class="fas fa-cogs"></i></button></td></tr>';
+        }
+
+        if(typeof atendiendo.estado === "undefined"){
+            console.log("1");
+            $("#estadopuesto").html("Esperando...");
+            $("#btnllamar").removeClass("d-none");
+            $("#btnperdido").addClass("d-none").data("turno","");
+            $("#btnatendido").addClass("d-none").data("turno","");
+            if(enespera.length > 0){
+                $("#btnllamar .fa-bell").addClass("blink");
+            }else{
+                $("#btnllamar .fa-bell").removeClass("blink");
+            }
+        }else{
+            if(typeof llamado.estado === "undefined"){
+                $("#estadopuesto").html(atendiendo.estado + " " + atendiendo.codigo);
+                console.log("2");
+                if(atendiendo.estado == "Atendido" || atendiendo.estado == "Perdido"){
+                    console.log("3");
+                    $("#btnllamar").removeClass("d-none");
+                    $("#btnperdido").addClass("d-none").data("turno", "");
+                    $("#btnatendido").addClass("d-none").data("turno", "");
+                    if(enespera.length > 0){
+                        $("#btnllamar .fa-bell").addClass("blink");
+                    }else{
+                        $("#btnllamar .fa-bell").removeClass("blink");
+                    }
+                }else if(atendiendo.estado == "Pedido"){
+                    console.log("4");
+                    $("#btnllamar").removeClass("d-none");
+                    $("#btnperdido").addClass("d-none").data("turno",atendiendo.id);
+                    $("#btnatendido").addClass("d-none").data("turno",atendiendo.id);
+                }else{
+                    console.log("5");
+                    $("#btnllamar").addClass("d-none");
+                    $("#btnperdido").removeClass("d-none").data("turno",atendiendo.id);
+                    $("#btnatendido").removeClass("d-none").data("turno",atendiendo.id);
+                }
+            }else{
+                $("#btnllamar").addClass("d-none");
+                $("#btnperdido").removeClass("d-none").data("turno",llamado.id);
+                $("#btnatendido").removeClass("d-none").data("turno",llamado.id);
+            }
+
+        }
+
+        if(cad != ''){
+            $("#tablaturnos").removeClass("d-none");
+            $("#turnosrecientes").removeClass("d-none");
+            $("#tablaturnos tbody").empty().append(cad);
+        }else{
+            $("#turnosrecientes").addClass("d-none");
+            $("#tablaturnos").addClass("d-none");
+        }
+    }
+
+
+    function llamarTurno(puesto){
+        let data={puesto:puesto, usuario:sessdata.id};
+        $.ajax({
+            url:"llamarturno.php",
+            type:"POST",
+            data:data
+        }).done((resp)=>{
+            console.log(resp);
+            if(resp.llamado.codigo == null){
+                alerta("Atención","Sin turnos que atender");
+                $("#estadopuesto").html("Esperando...");
+            }else{
+                $("#estadopuesto").html("Atendiendo <strong>" + resp.llamado.codigo + "</strong>");
+            }
+            leoDatos();
+        });
+    }
+
+
+    function setTurno(puesto, estado){
+        var id=$("#btnperdido").data("turno");
+
+        let data={ id:id, puesto:puesto, estado:estado, usuario:sessdata.id};
+        $.ajax({
+            url:"setturno.php",
+            type:"POST",
+            data:data
+        }).done((resp)=>{
+            console.log(resp);
+            if(resp.rta == "OK"){
+                $("#estadopuesto").html("Esperando...");
+            }else{
+                alerta("Atención","Falla la aplicación. Recargar pulsando Mayúscula + F5");
+                $("#estadopuesto").html("Esperando...");
+            }
+            leoDatos();
+        });
+    }
+
+
+    $(document).on("click",".manual",function(){
+        var id=$(this).parents("tr").data("idturno");
+        var codturno=$(this).parents("tr").find("td:nth-child(1)").text();
+        var optpuesto='<option value="">Elegir</option>';
+        datasucursal.puestos_suc.forEach((e)=>{
+            if(e.id != puestoId)
+                optpuesto+='<option value="'+e.id+'">'+e.nombre+'</option>';
+        });
+        $("#modaltitu").html("Transferir Turno " + codturno );
+        $("#modalbody").html('<div class="form-group"><label>Puesto</label><select class="form-control" id="modalselpuesto">'+optpuesto+'</select></div>');
+        $("#modalaceptar").removeClass("d-none").on("click",function(){
+            if($("#modalselpuesto").val() == "")
+                return;
+            var d={tabla:"turnos",op:"upd", filtro:"id=:id", set:"puesto=:puesto",parametros:{puesto:$("#modalselpuesto").val(),id:id}};
+            $.ajax({
+                url:"jsonedit.php",
+                type:"POST",
+                data:d
+            }).done(function(resp){
+                console.log(resp);
+            });
+            $("#modal").modal("toggle");
+        });
+        $("#modal").modal("toggle");
+    });
+
+
+
+    function addPanelTalonario(obj){
+        var cad=`
+        <div class="card my-4" data-fila="${obj.id}">
+            <div class="card-body">
+                <h5 class="card-title">Turnos ${obj.nombre}</h5>
+                <p>Turno Actual: <spam class="estadotalonario"></span></p>
+                <div class="input-group mb-2">
+                    <input type="number" class="form-control codtalonario" placeholder="Número de turno">
+                    <button type="button" class="btn btn-success" onclick="llamoTalonario(this)"><i class="fas fa-bell"></i> Llamar</button>
+                </div>
+            </div>
+        </div>`;
+
+        jumbo.innerHTML+=cad;
+    }
+
+    function llamoTalonario(el){
+        var p=$(el).parents(".card");
+        var f=p.data("fila");
+        var nro=p.find(".codtalonario").val();
+        var reg = /^\d+$/;
+        if(nro == "" || !reg.test(nro)){
+            alerta("Error", "Llamó a un número de talonario no válido.");
+            return;
+        }
+
+        var data={tabla:"turnos",op:"ins",parametros:{codigo:nro, puesto:puestoId, sucursal:datasucursal.idsuc, fila:f, estado:"Llamado",usr_id:puestoId}};
+        console.log("data");
+        console.log(data);
+        $.ajax({
+            url:"jsonedit.php",
+            type:"POST",
+            data:data
+        }).done(function(resp){
+            console.log("resp llamotalonario");
+            console.log(resp);
+            if(resp.rta == "OK")
+                leoDatos();
+            else
+                alerta("Error","Error al llamar por talonario");
+        });
+    }
+
+</script>

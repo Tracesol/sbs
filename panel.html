@@ -1,0 +1,156 @@
+<style>
+</style>
+<div class="container-fluid py-3 px-1" id="jumbo">
+    <h3 class="text-center mb-4 text-white" id="nombresuc"></h3>
+    <div class="row">
+        <div class="col">
+            <table class="table table-bordered bg-white text-center" id="tablaturnos"><thead class="thead-dark"><tr><th>Código</th><th>Puesto</th></tr></thead><tbody></tbody></table>
+        </div>
+        <div class="col" id="media">
+
+            <div id="carouselsbs" class="carousel slide" data-ride="carousel">
+                <!-- Indicators -->
+                <ol class="carousel-indicators"></ol>
+                <!-- Wrapper for slides -->
+                <div class="carousel-inner"></div>
+            </div>
+        </div>
+    </div>
+    <div class="fixed-bottom text-center bg-success text-dark py-2">Bienvenidos a SBS Librería Internacional</div>
+    <div class="d-none">
+        <audio id="ring" loop= "false" volume = "100">
+            <source src="sounds/dingdong.mp3" type="audio/mpeg">
+        </audio>
+    </div>
+</div>
+<script>
+    let idsuc;
+    let ls;
+    let datasucursal;
+    let puestoNombre={};
+    let jsonant;
+    const ring=document.querySelector("#ring");
+    let arrturnos=[];
+
+    function initPanel(){
+        $("#jumbo").parents(".container").removeClass("container").addClass("container-fluid").css("background-color","#333").css("color","silver");
+        $("#contbase").find("nav").remove();
+        $("#navbarSupportedContent").remove();
+        $("#piepag").remove();
+        ls=localStorage.getItem("idsuc");
+        if(ls == null){
+            modalSuc();
+        }else{
+            idsuc=ls;
+            getAudioPermi();
+            armoPanel();
+            leoDatos();
+        }
+    }
+
+    initPanel();
+
+    function getAudioPermi(){
+        navigator.mediaDevices.getUserMedia({audio:true})
+        .catch(e=>{alerta("Atención","No se puede reproducir audio");});
+    }
+
+
+    function modalSuc(){
+        $.ajax({
+            url:"jsonsucursales.php"
+        }).done(function(resp){
+            var cad='<option value="">Elegir</option>';
+            resp.forEach((el)=>{
+                cad+='<option value="'+el.id+'">'+el.nombre+'</option>';
+            });
+            $("#modaltitu").html("Seleccionar la sucursal a mostrar");
+            $("#modalbody").html('<div class="form-group"><label>Elegir Sucursal</label><select class="form-control" id="selsuc">'+cad+'</select></div>');
+            $("#modalaceptar").removeClass("d-none").on("click",function(event){
+                if($("#selsuc").val() == "")
+                    return;
+                else{
+                    idsuc=$("#selsuc").val();
+                    localStorage.setItem("idsuc",idsuc);
+                    armoPanel();
+                    leoDatos();
+                }
+                $("#modal").modal("toggle");
+            });
+            $("#modal").modal("toggle");
+        });
+    }
+
+    function armoPanel(){
+        if(idsuc == "" || idsuc == null || typeof idsuc === "undefined"){
+            alert("Error de aplicación. Llamar proveedor.");
+        }
+        $.ajax({
+            url:"jsonabm.php?tipo=horarios&idsuc="+idsuc
+        }).done(function(resp){
+            datasucursal=resp.data;
+            $("#nombresuc").html("Panel de Turnos " + datasucursal.sucursales[0].nombre);
+            var puestos=resp.data.puestos_suc;
+            for(var i in puestos){
+                puestoNombre[puestos[i].id]=puestos[i].nombre;
+            }
+
+        });
+
+        $.ajax({
+            url:"jsonabm.php?tipo=archivos"
+        }).done(function(resp){
+            addCarousel(resp.data.archivos);
+        });
+    }
+
+    function armoTabla(obj){
+        var cad='';
+        var sonar=0;
+        obj.forEach((el)=>{
+            if(el.estado == "Llamado"){
+                cad+='<tr class="bg-ligth"><td><i class="fas fa-bell blink"></i>&nbsp;&nbsp;'+el.codigo+'&nbsp;&nbsp;&nbsp;&nbsp;</td><td>'+puestoNombre[el.puesto]+'</td></tr>';
+                if(!arrturnos.includes(el.id)){
+                    arrturnos.push(el.id);
+                    sonar=1;
+                    console.log("entre");
+                }
+            }else{
+                if(arrturnos.includes(el.id))
+                    arrturnos.splice(arrturnos.indexOf(el.id),1);
+            }
+        });
+        $("#tablaturnos tbody").empty().append(cad);
+        if(sonar == 1){
+            ring.loop=false;
+            ring.play();
+            console.log("play play");
+            console.log(arrturnos);
+        }
+    }
+
+    function leoDatos(){
+        $("#loading").addClass("d-none");
+        $.ajax({
+            url:"jsonturnos.php?sucursal="+idsuc
+        }).done(function(resp){
+            $("#loading").removeClass("d-none");
+            if(resp != jsonant){
+                armoTabla(resp);
+                jsonant=resp;
+            }
+        });
+        setTimeout("leoDatos()",4000);
+    }
+
+
+    function addCarousel(obj){
+        var cad='';
+        for(var i in obj){
+            $('<div class="carousel-item"><img src="'+obj[i].nombre+'" width="100%"></div>').appendTo('#carouselsbs .carousel-inner');
+        }
+
+        $('#carouselsbs .carousel-item').first().addClass('active');
+        $('#carouselsbs').carousel('cycle');
+    }
+</script>

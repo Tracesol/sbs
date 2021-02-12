@@ -1,0 +1,335 @@
+<style>
+	#dias{
+		background-color:white;
+	}
+	#dias > thead > tr > th{
+		background-color:#F3F3F3;
+		text-align:center;
+		width:14%;
+	}
+	#dias > tbody > tr > td{
+		text-align:center;
+		width:14%;
+		height:600px;
+	}
+	#dias > tfoot > tr > td{
+		text-align:center;
+		width:14%;
+		background-color:#F3F3F3;
+	}
+	.conthora{
+		position:relative;
+		margin:0px;
+		padding:0px;
+	}
+	.horario{
+		width:100%;
+		background-color:#fefabc ;
+		position:absolute;
+		border-bottom:solid 1px #CC5;
+		box-shadow: 2px 2px 1px silver;
+		text-align:left;
+		font-size:0.95em;
+		padding:4px 4px;
+		color:#444;
+	}
+	.maxusrs{
+		width:60px;
+	}
+	.modal-dialog {
+		width: 750px;
+		margin-left:auto;
+	}	
+	</style>
+	
+	<div class="jumbotron py-3" id="continterno">
+		<h3 class="text-center my-3">Horarios de Agendas Programadas</h3>
+		<div class="row my-4">
+			<div class="col-2"><label>Sucursal</label></div>
+			<div class="col-4"><select class="form-control" id="selsuc"></select></div>
+			<div class="col-6"></div>
+		</div>
+		<div class="row my-4">
+			<div class="col-2"><label>Agenda</label></div>
+			<div class="col-4"><select class="form-control" id="agenda" disabled></select></div>
+			<div class="col-6"></div>
+		</div>
+		<div class="row my-4">
+			<div class="col-2"><label>Horarios: </label></div>
+		</div>
+		<div class="row my-4">
+			<table class="table table-bordered" id="dias">
+				<thead><tr><th>Domingo</th><th>Lunes</th><th>Martes</th><th>Mi&eacute;rcoles</th><th>Jueves</th><th>Viernes</th><th>Sábado</th></tr></thead>
+				<tbody>
+					<tr>
+						<td><div class="conthora"></div></td>
+						<td><div class="conthora"></div></td>
+						<td><div class="conthora"></div></td>
+						<td><div class="conthora"></div></td>
+						<td><div class="conthora"></div></td>
+						<td><div class="conthora"></div></td>
+						<td><div class="conthora"></div></td>
+					</tr>
+				</tbody>
+				<tfoot>
+					<tr>
+						<td><button class="btn btn-info addhora" data-dia="0"><span class="fa fa-plus"></span></button></td>
+						<td><button class="btn btn-info addhora" data-dia="1"><span class="fa fa-plus"></span></button></td>
+						<td><button class="btn btn-info addhora" data-dia="2"><span class="fa fa-plus"></span></button></td>
+						<td><button class="btn btn-info addhora" data-dia="3"><span class="fa fa-plus"></span></button></td>
+						<td><button class="btn btn-info addhora" data-dia="4"><span class="fa fa-plus"></span></button></td>
+						<td><button class="btn btn-info addhora" data-dia="5"><span class="fa fa-plus"></span></button></td>
+						<td><button class="btn btn-info addhora" data-dia="6"><span class="fa fa-plus"></span></button></td>
+					</tr>
+				</tfoot>
+			</table>
+		</div>
+	</div>
+	<div class="text-center">
+		<button type="button" class="btn btn-primary btn-lg center-block" id="guardar"><span class="fa fa-ok"></span> Guardar</button>
+	</div>						
+		
+	<!-- Modal Agrega horario -->
+	<div id="myModal" class="modal fade" role="dialog"  tabindex="-1">
+		<div class="modal-dialog">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h4 class="modal-title">Agregar Horario al </h4>
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+						<span aria-hidden="true">&times;</span>
+					</button>
+				</div>
+				<div class="modal-body">
+					<div class="row">
+						<div class="col-2"></div>
+						<div class="col-2">
+							<label>Inicio</label>
+						</div>
+						<div class="col-4">
+							<input type="text" class="form-control inputhora" id="hini" maxlength="5" value="08:00" title="Hora de inicio en formato 24 horas">
+						</div>
+					</div><br>
+					<div class="row">
+						<div class="col-2"></div>
+						<div class="col-2">
+							<label>Fin</label>
+						</div>
+						<div class="col-4">
+							<input type="text" class="form-control inputhora" id="hfin"  maxlength="5" value="13:00" title="Hora de finalización en formato 24 horas">
+						</div>
+					</div><br>
+					<div class="row">
+						<div class="col-2"></div>
+						<div class="col-2">
+							<label>Nota</label>
+						</div>
+						<div class="col-6"><input type="text" class="form-control" id="notahora" title="Descripción del bloque (opcional)"></div>
+						<div class="col-2"></div>
+					</div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-warning center-block" data-dismiss="modal"><span class="fa fa-arrow-left"></span> Volver</button>
+					<button type="button" class="btn btn-info center-block" id="guardohora" data-dia=""><span class="fa fa-check"></span> Guardar</button>
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<script>
+		var dianombre={"0":"Domingo","1":"Lunes","2":"Martes","3":"Miércoles","4":"Jueves","5":"Viernes","6":"Sábado"};
+		var horarios=[
+            {"dia":"Domingo","horas":[{"desde":"09:00","hasta":"13:00"},{"desde":"14:00","hasta":"19:00"}]},
+            {"dia":"Lunes","horas":[{"desde":"09:00","hasta":"13:00"},{"desde":"14:00","hasta":"19:00"}]},
+            {"dia":"Martes","horas":[{"desde":"09:00","hasta":"13:00"},{"desde":"14:00","hasta":"19:00"}]},
+            {"dia":"Miércoles","horas":[{"desde":"09:00","hasta":"13:00"},{"desde":"14:00","hasta":"19:00"}]},
+            {"dia":"Jueves","horas":[{"desde":"09:00","hasta":"13:00"},{"desde":"14:00","hasta":"19:00"}]},
+            {"dia":"Viernes","horas":[{"desde":"09:00","hasta":"13:00"},{"desde":"14:00","hasta":"19:00"}]},
+            {"dia":"Sábado","horas":[{"desde":"09:00","hasta":"13:00"},{"desde":"14:00","hasta":"19:00"}]}];
+		var todo={};
+		var nombresuc={};
+
+		function initApp(){
+			$.ajax({
+				url:"jsonabm.php?tipo=agendas",
+				type:"GET"
+			}).done(function(response){
+				todo=response.data;
+				var arrsuc=response.data.sucursales;
+				var cad=arrsuc.reduce(function(opt,val){
+					nombresuc[val.id]=val.nombre;
+					opt+='<option value="'+val.id+'">'+val.nombre+'</option>';
+					return opt;
+				},'<option value="">Elegir</option>');
+				$("#selsuc").append(cad);
+			});
+		}
+		initApp();
+		
+
+		$("#selsuc").change(function(){
+			//completo combo agendas
+			var suc=$(this).val();
+			$(".conthora").empty();
+			if(suc == ""){
+				return;
+			}
+			var puestos_suc=todo.puestos_suc;
+			var optpuestosuc='<option value="">Elegir</option>';
+			puestos_suc.forEach((obj)=>{
+				if(obj.sucursal == suc){
+					if(obj.filas == todo.filas[0].id)
+						optpuestosuc+='<option value="'+obj.id+'">'+obj.nombre+'</option>';
+				}
+			});
+			console.log("optpuestosuc");
+			console.log(optpuestosuc);
+			$("#agenda").empty().append(optpuestosuc).prop("disabled",false);
+		});
+
+
+		$("#agenda").change(function(){
+			var agenda=$(this).val();
+			if(agenda == ""){
+				location.reload();
+				return;
+			}else{
+				$(".conthora").empty();
+				$.ajax({
+					url:"jsonabm.php?tipo=horariosagendas&puesto="+agenda,
+					type:"GET"
+				}).done(function(response){
+					console.log(response);
+					armoHorarios(response.data.horariosagendas);
+				});	
+			}
+		});
+	
+		$(".addhora").click(function(){
+			if($("#agenda").val() == ""){
+				alerta("Atención","Debe seleccionar primero la Agenda");
+				return;
+			}
+			var dia=$(this).data("dia");
+			$("#myModal").find(".modal-title").html("Agregar horario al " + dianombre[dia]);
+			$("#myModal").modal("toggle");
+			$("#guardohora").data("dia",dia);
+		});
+	
+	
+	
+		$("#guardohora").click(function(){
+			var hini=$("#hini").val();
+			var hfin=$("#hfin").val();
+			if(hini == hfin){
+				alert("Error. La hora final no puede ser igual a la inicial.");
+				return;
+			}
+			var xini=3*hora2Int(hini);
+			var xfin=3*hora2Int(hfin);
+			if(xini > xfin){
+				alert("Error. La hora final no puede ser inferior a la inicial.");
+				return;
+			}
+			var nota=$("#notahora").val();
+			var dia=$(this).data("dia");
+			//Guardar y recargar
+			guardoHora(dia,hini,hfin,nota);
+			$("#myModal").modal('toggle');
+		});
+	
+	
+		$(document).on("click",".horario .close",function(event){
+			$(this).parent(".horario").remove();
+		});
+	
+	
+	//	Almaceno todo
+		$("#guardar").click(function(){
+			if($("#agenda").val() == "" || $("#selsuc").val() == "")
+				return;
+			var obj=[];
+			$(".horario").each(function(){
+				var o={};
+				o["dia"]=$(this).data("dia");
+				o["hini"]=$(this).data("hini");
+				o["hfin"]=$(this).data("hfin");
+				o["nota"]=$(this).data("nota");
+				obj.push(o);
+			});
+			if(obj.length == 0)
+				return;
+	
+			console.log("obj");
+			console.log(obj);
+			var data={};
+			data["datos"]=JSON.stringify(obj);
+			data["puesto"]=$("#agenda").val();
+			$.ajax({
+				url:"horariosagendas2db.php",
+				type:"POST",
+				data:data
+			}).done(function(resp){
+				if(resp.rta == "OK"){
+					alerta("Atención", "Datos guardados correctamente");
+				}else{
+					alerta("Error", "Problemas al guardar. Reintente");
+				}
+			});
+	
+		});
+	
+		function armoHorarios(arr){
+			arr.forEach(h => {
+				guardoHora(h.dia,h.hini,h.hfin,h.nota);
+			});
+	
+		}
+	
+	
+		function guardoHora(dia,hini,hfin,nota){
+			hini=hini.substr(0,5);
+			hfin=hfin.substr(0,5);
+			var xini=3*hora2Int(hini);
+			var xfin=3*hora2Int(hfin);
+			var ddia=parseInt(dia)+1;
+			console.log(ddia);
+			console.log("ddia");
+			$("#dias > tbody > tr > td:nth-child("+ ddia + ") > .conthora").append('<div class="horario"  style="top:'+ xini +'px;height:'+(xfin-xini)+'px" data-dia="'+dia+'" data-hini="'+hini+'" data-hfin="'+hfin+'" data-nota="'+nota+'"><a href="#" class="close" data-dismiss="alert" aria-label="close">&times;&nbsp;</a>' + hini + ' a ' + hfin + '<br><i>' +  nota + '</i></div>');
+		}
+	
+		function hora2Int(h){
+			var H0=8;
+			var x=h.split(":");
+			return (parseInt(x[0])-H0)*12+parseInt(x[1])/5;
+		}
+	
+
+
+		$(document).on("focusout",".inputhora",function(e){
+			if($(this).val() == "")
+				return;
+
+			if($(this).val().length != 5){
+				alert("Formato de hora invalido. Usar hh:mm. Ejemplo 13:30 o 07:20");
+				$(this).val("").focus();
+				return;
+			}
+			if(!checaHora($(this).val())){
+				var o=$(this);
+				alert("Hora invalida. Usar hh:mm. Ejemplo 13:30 o 07:20");
+				o.val("").focus();
+				return;
+			}
+		});
+
+		function checaHora(hora){
+			var hh=parseInt(hora.split(":")[0]);
+			var mm=parseInt(hora.split(":")[1]);
+			if(!Number.isInteger(hh) || !Number.isInteger(mm) ||  hh > 23 || mm > 59 || hh < 0 || mm < 0)
+				return false;
+			else
+				return true;
+		}
+		
+	</script>
+	

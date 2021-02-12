@@ -1,0 +1,25 @@
+{
+  "name": "Sistema de Turnos Web de SBS Librerias",
+  "description": "",
+  "short_name": "SBS Turnos Web",
+  "icons": [{
+    "src": "images/favicon.ico",
+      "sizes": "60x60",
+      "type": "image/x-icon"
+    }, {
+      "src": "images/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }, {
+      "src": "images/logo_500.png",
+      "sizes": "500x500",
+      "type": "image/png"
+    }],
+  "lang": "es-AR",
+  "scope": "/sbs/",
+  "start_url": "/sbs/index.html",
+  "display": "standalone",
+  "background_color": "#FFF",
+  "theme_color": "#2F3BA2",
+  "permissions": ["tabs","background","notifications"]
+}

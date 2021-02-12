@@ -1,0 +1,191 @@
+<div class="jumbotron py-3">
+    <h3 class="text-center" id="sucursal" data-idSucursal=""></h3>
+    <div class="card-group text-center" id="cardgroup"></div>
+</div>
+<script>
+    const sucursal=document.querySelector("#sucursal");
+    const cardgroup=document.querySelector("#cardgroup");
+    const puestoNombre={null:""};
+    let turnospedidos = localStorage.getItem("turnospedidos");
+    let suctel="";
+    let jsonant=[];
+    let idvisita=0;
+    let notificaCod=[];
+
+    inicioEspera();
+
+    function inicioEspera(){
+        if(turnospedidos != null){
+            turnospedidos=JSON.parse(turnospedidos);
+        }else{
+            alerta("Error","No se registran turnos pedidos en éste navegador.");
+            return;
+        }
+        refrescoTimer();
+    }
+
+
+    function refrescoTimer(){
+        leoDatos();
+        setTimeout("refrescoTimer()",5000);
+    }
+
+    function leoDatos(){
+        if(typeof turnospedidos[0] === "undefined"){
+            location.assign("index.html?p=pedidos");
+            return;
+        }
+
+        var url="espera.php?usr_id="+turnospedidos[0].usr_id;
+        idvisita=turnospedidos[0].usr_id;
+        $('#loading').addClass("d-none");
+        $.ajax({
+            url:url
+        }).done(function(resp){
+            if(resp != jsonant){
+                muestroTurno(resp);
+                jsonant=resp;
+            }
+            $('#loading').removeClass("d-none");
+        });
+
+    }
+
+    function muestroTurno(obj){
+        if(obj.rta === "ERROR"){
+            cardgroup.innerHTML='<p class="text-center"><i class="fas fa-exclamation-triangle text-danger"></i> Sin turnos pedidos para el día de hoy.</p>';
+            return false;
+        }
+
+        var cad='';
+
+        if(obj != null){
+            for(let i in obj){                
+                var tipoturno="";
+                if(obj[i].estado == "Atendido"){
+                    cad+=`
+                        <div class="card mx-2" style="max-width: 18rem;" id="${obj[i].codigo}" data-estado="">
+                            <div class="card-body text-center">
+                                <h3 class="card-title text-center">${obj[i].codigo}</h3>
+                                <div class="card-body"><span class="aviso">TURNO ATENDIDO.<br>GRACIAS!!!<br><br>SBS LIBRERÍAS</div>
+                            </div>
+                        </div>`;
+
+                }else if(obj[i].estado == "Llamado"){
+                    //Pedido ahora
+                    cad+=`
+                    <div class="card mx-2" style="max-width: 18rem;" id="${obj[i].codigo}" data-estado="">
+                        <div class="card-body text-center">
+                            <h3 class="card-title text-center">${obj[i].codigo}</h3>
+                            <div class="card-body"><span class="aviso"><span class="blink">ATENCION!</span> Ir al ${obj[i].puestonombre}<br></span><span class="tiempo"></span><br>Sucursal: ${obj[i].sucursalnombre}<br>Fila: ${obj[i].filanombre}</div>
+                            <button class="btn btn-primary" onclick="posponerTurno('${obj[i].id}')">Posponer</button>
+                            <button class="btn btn-danger" onclick="cancelarTurno('${obj[i].id}')">Cancelar</button>
+                        </div>
+                    </div>`;
+                    if(!notificaCod.includes(obj[i].id)){
+                        showNotif("SBS Librerías - Turnos Online", "Presentarse ahora en el " + obj[i].puestonombre);
+                        notificaCod.push(obj[i].id);
+                    }
+                }else if(obj[i].estado == "Pedido"){
+                    if(obj[i].agendado == "Si"){
+                        //Agendado
+                        cad+=`
+                            <div class="card mx-2" style="max-width: 18rem;" id="${obj[i].codigo}" data-estado="">
+                                <div class="card-body text-center">
+                                    <h3 class="card-title">${obj[i].codigo}</h3>
+                                    <div class="card-body text-left">Presentarse el <strong>${obj[i].horapedidof}</strong><br>Sucursal: <strong>${obj[i].sucursalnombre}</strong><br>Fila: <strong>${obj[i].filanombre}</strong></div>
+                                    <button class="btn btn-danger" onclick="cancelarTurno('${obj[i].id}')">Cancelar</button>
+                                </div>
+                            </div>`;
+
+                    }else{
+                        if(obj[i].minespera <= 0)
+                            var waiting='Posición: ' + obj[i].posicion + ' ('+(obj[i].posicion * 3)+' min. aprox.)';
+                        else
+                            var waiting='Presentarse en ' + Math.abs(parseInt(obj[i].minespera)) + ' min.'; 
+
+                        cad+=`
+                        <div class="card mx-2" style="max-width: 18rem;" id="${obj[i].codigo}" data-estado="">
+                            <div class="card-body text-center">
+                                <h3 class="card-title text-center">${obj[i].codigo}</h3>
+                                <div class="card-body"><span class="aviso"></span><span class="tiempo">${waiting}</span><br>Sucursal: ${obj[i].sucursalnombre}<br>Fila: ${obj[i].filanombre}</div>
+                                <button class="btn btn-primary" onclick="posponerTurno('${obj[i].id}')">Posponer</button>
+                                <button class="btn btn-danger" onclick="cancelarTurno('${obj[i].id}')">Cancelar</button>
+                            </div>
+                        </div>`;
+                    }
+                }
+            }
+            cardgroup.innerHTML=cad;
+        }
+
+        if(obj.length === 0){
+            if(idvisita != 0){
+                var o=[{usr_id:idvisita}];
+                localStorage.setItem("turnospedidos", JSON.stringify(o));
+            }
+        }else{
+            localStorage.setItem("turnospedidos", JSON.stringify(obj));
+        }
+
+
+        if(cad === ""){
+            console.log("palobj");
+            console.log(obj);
+            cardgroup.innerHTML='<p class="text-center"><i class="fas fa-exclamation-triangle text-danger"></i> Sin turnos pedidos para el día de hoy.</p>';
+        }
+    }
+
+
+    function cancelarTurno(id){
+        $("#modaltitu").html("Cancelar turno");
+        $("#modalbody").html('Desea cancelar el Turno?');
+        $("#modalaceptar").on("click",function(){
+            let data={id:id}
+            $.ajax({
+                url:"cancelarturno.php",
+                type:"POST",
+                data:data
+            }).done((resp)=>{
+                if(resp.rta != "OK"){
+                    alert("Error al cancelar. Reintente.");
+                }
+                leoDatos();
+                $("#modal").modal("toggle");
+            });
+        }).removeClass("d-none");
+        $("#modal").modal("toggle");
+    }
+    
+
+    function posponerTurno(id){
+        $("#modaltitu").html("Posponer turno");
+        $("#modalbody").html('<div class="form-group"><label>¿Cuantos minutos desea retrasar el turno?</label><input type="number" class="form-control" id="minutos" value="5" min="1" max="60"></div>');
+        $("#modalaceptar").on("click",function(event){
+            var minutos=$("#minutos").val();
+            var reg = /^-?\d+\.?\d*$/
+            if(minutos < 5 || minutos > 60){
+                alert("Valor erroneo. Elegir entre 5 y 60 minutos");
+                event.stopPropagation();
+                return;
+            }
+
+            if(reg.test(minutos)){
+                let data={id:id, minutos:$("#minutos").val()}
+                $.ajax({
+                url:"posponerturno.php",
+                type:"POST",
+                data:data
+                }).done(function(resp){
+                    if(resp.rta != "OK"){
+                        alert("Error al cancelar. Reintente.");
+                    }
+                    leoDatos();
+                    $("#modal").modal("toggle");
+                });
+            }            
+        }).removeClass("d-none");
+        $("#modal").modal("toggle");
+    }
+
+</script>

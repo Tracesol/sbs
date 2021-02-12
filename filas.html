@@ -1,0 +1,158 @@
+<style>
+</style>
+<div class="jumbotron py-3 px-1">
+    <h3 class="text-center my-3">Filas virtuales</h3>
+    <table class="table table-condensed table-sm table-bordered bg-white text-center" id="tablafilas">
+        <thead class="thead-dark"><tr><th>Nombre</th><th>Prioridad</th><th>Tipo</th><th>Acción</th></tr></thead>
+        <tbody></tbody>
+        <tfoot><tr><td colspan="4"><button class="btn btn-info" id="additem"><i class="fas fa-plus"></i></button></td></tr></tfoot>
+    </table>
+</div>
+<script>
+    var prio={"1":"Alta","2":"Normal","3":"Baja"};
+
+    $.ajax({
+        url:"jsonabm.php?tipo=filas"
+    }).done(function(response){
+        var resp=response.data;
+        console.log("resp");
+        console.log(resp);
+        var cad='';
+        for(var i in resp){
+            cad+='<tr data-idfila="'+resp[i].id+'"><td>'+resp[i].nombre+'</td><td data-val="'+resp[i].prioridad+'">'+prio[resp[i].prioridad]+'</td><td>'+resp[i].tipo+'</td>';
+            cad+='<td><button class="btn btn-secondary mx-2 edit"><i class="fas fa-edit"></i></button><button class="btn btn-danger delete"><i class="fas fa-trash"></i></button></td></tr>';
+        }
+        $("#tablafilas tbody").empty().append(cad);
+    });
+
+
+	$("#additem").click(function(){
+		$("#modaltitu").html("Agregar fila virtual");
+		var cad=`
+			<form id="modalformu">
+				<div class="form-group">
+					<label for="usuario">Nombre</label>
+					<input type="text" class="form-control" data-campo="nombre" max-lenght="50" placeholder="Nombre de la fila"/>
+				</div>
+				<div class="form-group">
+					<label for="prioridad">Prioridad</label>
+					<select class="form-control" data-campo="prioridad"><option value="2">Normal</option><option value="1">Alta</option><option value="3">Baja</option></select>
+				</div>
+				<div class="form-group">
+					<label for="tipo">Tipo de Fila</label>
+					<select class="form-control" data-campo="tipo"><option value="">Elegir</option><option value="Web">Web</option><option value="Manual">Manual</option><option value="Programada">Programada</option></select>
+				</div>
+			</form>
+		`;
+		$("#modalbody").html(cad);
+		$("#modalaceptar").removeClass("d-none");
+		$("#modalaceptar").on("click",function(){
+			var f={};
+			var incompleto=false;
+			$("#modal .form-control").each(function(){
+				if($(this).val() == "")
+					incompleto=true;
+				f[$(this).data("campo")]=$(this).val();
+			});
+			if(incompleto){
+				alert("Atención: Hay campos sin completar.");
+				return;
+			}
+
+			var d={"tabla":"filas","op":"ins","parametros":f}
+			$.ajax({
+				url:"jsonedit.php",
+				type:"POST",
+				data:d
+			}).done(function(resp){
+				console.log("resp");
+				console.log(resp);
+                if(resp.rta == "OK")
+                    location.reload();
+				else
+					alert("Error al agregar.");
+				$("#modal").modal("toggle");
+			})
+		});
+		$("#modal").modal("toggle");
+	});
+
+
+
+
+	$(document).on("click",".edit",function(){
+		$("#modaltitu").html("Editar usuario");
+		var padre=$(this).parents("tr");
+		console.log("nombre");
+		console.log(padre.find("td:nth-child(2)").text());
+		var cad=`
+			<form id="modalformu">
+				<div class="form-group">
+					<label for="usuario">Nombre</label>
+					<input type="text" class="form-control" data-campo="nombre" max-lenght="50" value="`+padre.find("td:nth-child(1)").text()+`">
+				</div>
+				<div class="form-group">
+					<label for="prioridad">Prioridad</label>
+					<select class="form-control" data-campo="prioridad" id="modalprioridad"><option value="2">Normal</option><option value="1">Alta</option><option value="3">Baja</option></select>
+				</div>
+				<div class="form-group">
+					<label for="tipo">Tipo de Fila</label>
+					<select class="form-control" data-campo="tipo" id="modaltipo"><option value="">Elegir</option><option value="Web">Web</option><option value="Manual">Manual</option><option value="Programada">Programada</option></select>
+				</div>
+			</form>
+		`;
+		$("#modalbody").html(cad);
+		$("#modalprioridad").val(padre.find("td:nth-child(2)").data("val"));
+		$("#modaltipo").val(padre.find("td:nth-child(3)").text());
+		$("#modalaceptar").removeClass("d-none");
+		$("#modalaceptar").on("click",function(){
+			var f={};
+			$("#modal .form-control").each(function(){
+    			f[$(this).data("campo")]=$(this).val();
+			});
+			var d={"tabla":"filas","op":"upd","filtro":"id="+padre.data("idfila"),"set":"nombre=:nombre,prioridad=:prioridad,tipo=:tipo","parametros":f}
+			$.ajax({
+				url:"jsonedit.php",
+				type:"POST",
+				data:d
+			}).done(function(resp){
+				console.log("resp");
+				console.log(resp);
+				if(resp.rta == "OK")
+					location.reload();
+				else
+					alert("Error al editar.");
+				$("#modal").modal("toggle");
+			})
+		});
+		$("#modal").modal("toggle");
+	});
+
+
+	$(document).on("click","#tablafilas .delete",function(){
+		var padre=$(this).parents("tr");
+		var id=padre.data("idfila");
+		var sessdata=localStorage.getItem("sessdata");
+		$("#modaltitu").html("Atención");
+		$("#modalbody").html("Desea eliminar al usuario?");
+		$("#modalaceptar").removeClass("d-none");
+		$("#modalaceptar").on("click",function(){
+			$.ajax({
+				url:"jsonedit.php",
+				type:"POST",
+				data:{"tabla":"filas","op":"del","filtro":"id="+id , "sessdata":sessdata}
+			}).done(function(resp){
+				console.log("resp");
+				console.log(resp);
+				if(resp.rta == "OK")
+					location.reload();
+				else
+					alert("Error al borrar.");
+				$("#modal").modal("toggle");
+			})
+		});
+		$("#modal").modal("toggle");
+	});
+
+
+</script>

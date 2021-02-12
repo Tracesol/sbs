@@ -1,0 +1,156 @@
+<style>
+</style>
+<div class="jumbotron py-3">
+    <h3 class="text-center my-3">Imágenes Panel de Turnos</h3>
+    <div class="form-group">
+        <label>Imágenes</label>
+        <table class="table table-condensed table-bordered text-center bg-white" id="tablapubli">
+            <thead class="thead-dark"><tr><th>Sucursal</th><th>Archivo</th><th>Borrar</th></tr></thead>
+            <tbody></tbody>
+            <tfoot><tr><td colspan="3"><button class="btn btn-info" id="additem"><i class="fas fa-plus"></i></button></td></tr></tfoot>
+        </table>
+    </div>
+</div>
+<script>
+    var optsuc='<option value="">Elegir</option><option value="1000">Todas</option>';
+    var sucursales={};
+    $.ajax({
+        url:"jsonabm.php?tipo=archivos"
+    }).done((response)=>{
+        var resp=response.data.sucursales;
+        resp.forEach(el => {
+            optsuc+='<option value="'+el.id+'">'+el.nombre+'</option>';
+            sucursales[el.id]=el.nombre;
+        });
+        sucursales["1000"]="Todas";
+
+        var archivos=response.data.archivos;
+        var cad='';
+        archivos.forEach(el => {
+            cad+='<tr data-idarchivo="'+el.id+'"><td>'+sucursales[el.sucursal]+'</td><td><a href="'+el.nombre+'" target="_blank">'+el.nombre+'</a></td>';
+            cad+='<td><button class="btn btn-danger delete"><i class="fas fa-trash"></i></button></td></tr>';
+        });
+        $("#tablapubli tbody").empty().append(cad);
+    });
+
+    
+
+
+    $("#additem").click(function(){
+		$("#modaltitu").html("Agregar archivo");
+		var cad=`
+			<form id="modalformu">
+				<div class="form-group">
+					<label>Sucursal</label>
+					<select class="form-control" id="modalsuc" data-campo="sucursal">${optsuc}</select>
+				</div>
+				<div class="form-group">
+					<label>Archivo</label>
+					<input type="file" class="form-control" data-campo="nombre" data-archivo="" id="modalfile"/>
+				</div>
+			</form>
+		`;
+		$("#modalbody").html(cad);
+		$("#modalaceptar").removeClass("d-none");
+		$("#modalaceptar").on("click",function(){
+			var f={};
+			var incompleto=false;
+			$("#modal .form-control").each(function(){
+				if($(this).val() == "")
+					incompleto=true;
+				f[$(this).data("campo")]=$(this).val();
+			});
+			if(incompleto){
+				alert("Atención: Hay campos sin completar.");
+				return;
+			}
+            f["nombre"]=$("#modalfile").data("archivo");
+			var d={"tabla":"archivos","op":"ins","parametros":f}
+			$.ajax({
+				url:"jsonedit.php",
+				type:"POST",
+				data:d
+			}).done(function(resp){
+				console.log("resp");
+				console.log(resp);
+				if(resp.rta == "OK")
+                    location.reload();
+				else
+					alert("Error al agregar.");
+				$("#modal").modal("toggle");
+			})
+		});
+
+		$("#modal").modal("toggle");
+        
+    });
+
+
+    $(document).on("click",".delete",function(){
+        var x=confirm("Desea eliminar el archivo?");
+        if(!x)
+            return;
+        var fila=$(this).parents("tr");
+        var d={tabla:"archivos",op:"del","filtro":"id=" + fila.data("idarchivo")}
+        $.ajax({
+            url:"jsonedit.php",
+            type:"POST",
+            data:d
+        }).done(function(resp){
+            console.log("resp del");
+            console.log(resp);
+            fila.remove();
+        });     
+    });
+    
+
+
+    $(document).on("change","input[type=file]",function(events){
+        if($(this)[0].files[0].name.split(".").length > 2){
+            alerta("Error","Nombre de archivo no valido");
+            $(this).val("");
+            return;
+        }
+
+        if($("#modalsuc").val() == ""){
+            alerta("Error","Debe elegir la sucursal");
+            $(this).val("");
+            return;
+        }
+
+        console.log($(this));
+        events.preventDefault();
+        var formData = new FormData();
+        var elemento=$(this);
+        formData.append("archivo" , $(this)[0].files[0]);
+        $.ajax({
+            url: "subidor.php",
+            type: "post",
+            dataType: "json",
+            data: formData,
+            cache: false,
+            contentType: false,
+            processData: false,
+            enctype:"multipart/form-data",
+        }).done(function(res){
+            if(res.rta == "OK"){
+                elemento.data("archivo",res.nombre);
+            }else
+                alerta("Error", res.msg);
+        });
+    });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</script>

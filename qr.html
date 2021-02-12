@@ -1,0 +1,52 @@
+<style>
+</style>
+<div class="jumbotron py-3 px-1">
+    <h3 class="text-center my-3">Impresión de QR Sucursales</h3>
+    <div class="form-group">
+        <label for="selsuc">Sucursal</label>
+        <select class="form-control" id="selsuc" title="Elegir Sucursal" onchange="cambioSel(this)"></select>
+    </div>
+    <img src="" class="img text-center mx-auto d-none" id="qr">
+</div>
+<script>
+    var sucursales=[];
+    var sessdata=localStorage.getItem("sessdata");
+    var data={tipo:"sucursales", sessdata:sessdata};
+    if(sessdata != null){
+        sessdata=JSON.parse(localStorage.getItem("sessdata"));
+    }
+
+    $.ajax({
+        url:"jsonabm.php",
+        type:"POST",
+        data:data
+    }).done((response)=>{
+        console.log(response);
+        var cad='<option value="">Elegir</option>';
+        if(response.tipo === "sucursales"){
+            var resp=response.data;
+			resp.forEach(el => {
+				cad+='<option value="'+el.id+'">'+el.nombre+'</option>';
+            });
+            sucursales=resp;
+        }
+        $("#selsuc").html(cad);
+
+        if(typeof sessdata.nivel !== "undefined"){
+            if(sessdata.nivel == "Sucursal" )
+                $("#selsuc").val(sessdata.sucursal).trigger("change").prop("disabled",true);
+        }
+    });
+
+
+    function cambioSel(el){
+        var idsuc=$(el).val();
+
+        $("#qr")
+        .attr("src","qr.php?sucursal=" + idsuc)
+        .removeClass("d-none");
+    }
+
+
+
+</script>

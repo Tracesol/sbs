@@ -1,0 +1,141 @@
+<style>
+    .selfilas{
+        width: 300px;
+    }
+</style>
+<div class="jumbotron py-3">
+    <h3 class="text-center my-3">Atención por Sucursal</h3>
+    <div class="form-group">
+        <label>Sucursal</label>
+        <select class="form-control" id="selsuc" title="Elegir Sucursal" onchange="cambioSuc(this)"></select>
+    </div>
+    <br>
+
+    <div class="d-none" id="basetabla">
+        <table class="table table-bordered table-condensed text-center table-sm" id="tablaatencion">
+            <thead class="thead-dark"><tr><th>Nombre del Puesto</th><th>Filas</th><th>Usuario</th><th>Borrar</th></tr></thead>
+            <tbody class="bg-white"></tbody>
+            <tfoot><tr><td colspan="4"><button class="btn btn-info" id="additem"><i class="fas fa-plus"></i></button></td></tr></tfoot>
+        </table>
+        <div class="text-center"><button class="btn btn-lg btn-info" id="guardotodo"><i class="fas fa-check"></i> Guardar</button></div>
+    </div>
+</div>
+<script>
+    var todo=[];
+    var sucursal={};
+    var sessdata=localStorage.getItem("sessdata");
+    if(sessdata != null)
+    	sessdata=JSON.parse(sessdata);
+
+
+    //completo select sucursales
+    $.ajax({
+        url:"jsonabm.php?tipo=sucursales"
+    }).done((response)=>{
+        console.log(response);
+        var cad='<option value="">Elegir</option>';
+        if(response.tipo === "sucursales"){
+            var resp=response.data;
+            resp.forEach(el => {
+                cad+='<option value="'+el.id+'">'+el.nombre+'</option>';
+            });
+            sucursal=response.data;
+        }
+        $("#selsuc").html(cad);
+        if(typeof sessdata.nivel !== "undefined"){
+            if(sessdata.nivel == "Sucursal" )
+                $("#selsuc").val(sessdata.sucursal).trigger("change").prop("disabled",true);
+       	}
+    });
+
+    //manejo cambio de sucursal
+    var optfilas='';
+    var optusrs='';
+
+    function cambioSuc(){
+        if($("#selsuc").val() == "")
+            location.reload();
+        else
+            $("#basetabla").removeClass("d-none");
+
+        $.ajax({
+            url:"jsonabm.php?tipo=horarios&idsuc=" + $("#selsuc").val()
+        }).done((response)=>{
+            todo=response.data;
+            if(optfilas == ""){
+                for(var i in todo.filas){
+                    optfilas+='<option value="'+todo.filas[i].id+'">'+todo.filas[i].nombre+'</option>';
+                }
+            }
+            if(optusrs == ""){
+                optusrs = '<option value="">Elegir</option>';
+                for(var i in todo.usuarios){
+                    optusrs+='<option value="'+todo.usuarios[i].id+'">'+todo.usuarios[i].nombre+'</option>';
+                }
+            }
+
+            var cad='';
+            for(var i in todo.puestos_suc){
+                cad+='<tr data-idpuesto="'+todo.puestos_suc[i].id+'"><td><input type="ẗext" class="form-control nombrepuesto" name="nombre" placeholder="Nombre del puesto" value="'+todo.puestos_suc[i].nombre+'"></td>';
+                cad+='<td><select class="form-control chosen-select selfilas" name="filas" data-placeholder="Elegir 1 o más filas" multiple data-valor="'+todo.puestos_suc[i].filas+'">'+optfilas+'</select></td>';
+                cad+='<td><select class="form-control selusuarios" name="usuario" data-placeholder="Elegir usuario" data-valor="'+todo.puestos_suc[i].usuario+'">'+optusrs+'</select></td>';
+                cad+='<td><button class="btn btn-danger delete"><i class="fas fa-trash"></i></button></td></tr>';
+            }
+            $("#tablaatencion tbody").empty().append(cad);
+            $("#tablaatencion tbody .selfilas").chosen();
+            $("#tablaatencion tbody .selfilas").each(function(){
+                if(typeof $(this).data("valor") == "number")
+                    $(this).val($(this).data("valor")).trigger("chosen:updated");
+                else if(typeof $(this).data("valor") == "string")
+                    $(this).val($(this).data("valor").split(",")).trigger("chosen:updated");
+                else
+                    console.log("nosequees");
+            });
+            $("#tablaatencion tbody").find(".selusuarios").each(function(){
+                $(this).val($(this).data("valor"));
+            });
+        });
+	}
+
+    $("#additem").click(function(){
+        var cad="";
+        cad='<tr><td><input type="ẗext" class="form-control nombrepuesto" name="nombre" placeholder="Nombre del puesto"></td>';
+        cad+='<td><select class="form-control chosen-select selfilas" name="filas" data-placeholder="Elegir 1 o más filas" multiple>'+optfilas+'</select></td>';
+        cad+='<td><select class="form-control selusuarios" name="usuario" data-valor="">'+optusrs+'</select></td><td><button class="btn btn-danger delete"><i class="fas fa-trash"></i></button></td></tr>';
+        $("#tablaatencion tbody").append(cad);
+        $("#tablaatencion tbody").find(".selfilas").chosen();
+    });
+
+
+    $(document).on("click",".delete",function(){
+		$(this).parents("tr").remove();
+    });
+    
+
+    $("#guardotodo").click(function(){
+        var suc=$("#selsuc").val();
+        if(suc === "")
+            return;
+        var puestofila=[];
+        $("#tablaatencion tbody tr").each(function(){
+            puestofila.push({nombre:$(this).find(".nombrepuesto").val(), filas:$(this).find(".selfilas").val().join(","), usuario:$(this).find(".selusuarios").val()});
+        });
+        var sessdata=localStorage.getItem("sessdata");
+        var data={sucursal:suc, puestofila:JSON.stringify(puestofila),sessdata:sessdata};
+        console.log("data");
+        console.log(data);
+        $.ajax({
+            url:"atencion2db.php",
+            type:"POST",
+            data:data
+        }).done(function(resp){
+            if(resp.rta == "OK")
+                alerta("Atención", "Datos guardados correctamente");
+        });
+
+
+    });
+
+</script>
+<link rel="stylesheet" href="js/chosen/chosen.css">
+<script src="js/chosen/chosen.jquery.js"></script>

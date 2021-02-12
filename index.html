@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+	<head>
+	<meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Sistema de Turnos Online">
+    <meta name="author" content="tracesol.com">
+    <title>Sistema de Turnos Online</title>
+    <link rel="manifest" href="/sbs/manifest.json">
+    <link href="fonts/roboto/roboto.css" rel="stylesheet"> 
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <script src="js/jquery.min.js"></script> 
+    <script src="js/popper.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="fonts/fontawesome/css/fontawesome-all.min.css"/>
+    <link href="css/styles.css" rel="stylesheet"> 
+    <link rel="icon" href="images/favicon.ico"/>
+</head>
+<body data-notif="">
+    <div class="container p-0" id="contbase">
+        <nav class="navbar navbar-expand-lg navbar-light bg-light py-0">
+            <a class="navbar-brand" href="index.html"><img src="images/logo.png" width="40" height="40" class="d-inline-block align-top" alt="" loading="lazy"></a>
+            <button class="navbar-toggler collapsed" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+              <span class="icon-bar top-bar"></span>
+              <span class="icon-bar middle-bar"></span>
+              <span class="icon-bar bottom-bar"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            </div>
+        </nav>
+        <div class="wrapper p-3" id="cont">
+        <!--CONTENIDO DE CADA PAGINA DESDE ACA-->
+        </div>
+    </div>
+    <div class="container p-0 bg-dark text-secondary text-center" id="piepag"><small>Diseño y Desarrollo <span style="cursor:pointer;font-weight: bold;color:#999" onclick="location.assign('https://www.tracesol.com')">tracesol.com</span></small></div>
+    <div class="modal" id="loading" style="background:url('images/loading.gif') no-repeat center fixed;background-size:cover;opacity:0.6;"></div>
+    <div class="modal" tabindex="-1" role="dialog" id="modal">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="modaltitu">Modal title</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body" id="modalbody">
+              <p>Modal body text goes here.</p>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-danger d-none" id="modalaceptar">Aceptar</button>
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+</body>
+<script src="index.js"></script>
+</html>
+

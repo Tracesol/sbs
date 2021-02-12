@@ -1,0 +1,141 @@
+<style>
+</style>
+<link rel="stylesheet" href="css/datepicker.css">
+<script src="js/bsdatepicker.js"></script>
+<div class="jumbotron py-3 px-1">
+    <h3 class="text-center my-3">Históricos de Sucursales</h3>
+    <div id="formucompleto">
+        <div class="row">
+            <div class="col">
+                <div class="form-group">
+                    <label for="selsuc">Sucursal</label>
+                    <select class="form-control" id="selsuc" title="Elegir Sucursal"></select>
+                </div>            
+            </div>
+            <div class="col">
+                <div class="form-group">
+                    <label>Desde</label>
+                    <input type="text" class="form-control" id="desde" data-dia="">
+                </div>                        
+            </div>
+            <div class="col">
+                <div class="form-group">
+                    <label>Hasta</label>
+                    <input type="text" class="form-control" id="hasta" data-dia="">
+                </div>                        
+            </div>
+        </div>
+        <div class="text-center my-3"><button class="btn btn-info" onclick="buscar()"><i class="fas fa-search"></i> Buscar</button></div>
+    </div>
+    <table class="table table-sm table-bordered text-center bg-white mt-4" id="tabla">
+        <thead class="thead-dark"><tr><th>Sucursal</th><th>Fecha/Hora</th><th>Código</th><th>Fila</th><th>Puesto</th><th>Espera(min)</th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div>
+<script>
+    var sucursales=[];
+    var sessdata=localStorage.getItem("sessdata");
+    var data={tipo:"sucursales", sessdata:sessdata};
+    if(sessdata != null){
+        sessdata=JSON.parse(localStorage.getItem("sessdata"));
+    }
+
+    $.ajax({
+        url:"jsonabm.php",
+        type:"POST",
+        data:data
+    }).done((response)=>{
+        console.log(response);
+        var cad='<option value="">Elegir</option>';
+        if(response.tipo === "sucursales"){
+            var resp=response.data;
+			resp.forEach(el => {
+				cad+='<option value="'+el.id+'">'+el.nombre+'</option>';
+            });
+            sucursales=resp;
+        }
+        $("#selsuc").html(cad);
+
+        if(typeof sessdata.nivel !== "undefined"){
+            if(sessdata.nivel == "Sucursal" )
+                $("#selsuc").val(sessdata.sucursal).prop("disabled",true);
+        }
+        setCalendario("#desde");
+        setCalendario("#hasta");
+    });
+
+
+
+	function setCalendario(elem){
+        const hoy = new Date();
+        $(elem).datepicker('remove');
+        $(elem).datepicker({
+            format: "dd/mm/yyyy",
+            autoclose: true,
+            maxViewMode: 1,
+            todayHighlight: true,
+            endDate: hoy,
+        }).on("changeDate",function(e){
+            console.log(e);
+            $(elem).data("dia",formatoFecha(e));
+        });
+
+        if(elem == "#desde"){
+            const desde = new Date(hoy);
+            desde.setMonth(hoy.getMonth() - 1); //desde hace 30 dias
+            desde.setHours(0,0,0,0);
+            $(elem).datepicker('update',desde);
+            $(elem).data("dia",formatoFecha(desde));
+        }else{
+            hoy.setHours(0,0,0,0);
+            $(elem).datepicker('update',hoy);
+            $(elem).data("dia",formatoFecha(hoy));
+        }
+    }
+
+
+    function formatoFecha(e){
+        var dateStr = e.getFullYear() + "-" + ("00" + (e.getMonth() + 1)).slice(-2) + "-" + ("00" + e.getDate()).slice(-2);
+        return dateStr;
+    }
+
+
+    function buscar(){
+        if($("#desde").val() == "" || $("#hasta").val() == ""){
+            alerta("Error","Fecha errónea");console.log
+            return;
+        }
+        var data={};
+        if($("#selsuc").val() != "")
+            data["sucursal"]=$("#selsuc").val();
+
+        data["desde"]=$("#desde").data("dia");
+        data["hasta"]=$("#hasta").data("dia");
+        $.ajax({
+            url:"jsonhisto.php",
+            type:"POST",
+            data:data
+        }).done(function(resp){
+            console.log("resp buscar");
+            console.log(resp);
+            armoTabla(resp);
+        });
+    }
+
+
+    function armoTabla(obj){
+        var cad='';
+        obj.data.forEach((e)=>{
+            cad+='<tr><td>'+e.sucursalnombre+'</td><td>'+e.horapedidof+'</td><td>'+e.codigo+'</td><td>'+e.filanombre+'</td><td>'+e.puestonombre+'</td><td>'+e.minespera+'</td></tr>';
+        });
+        $("#tabla tbody").empty().append(cad);
+        if(cad == ''){
+            alerta("Atención", "Sin registros en ese período y sucursal");
+            return;
+        }
+        document.querySelectorAll("td").forEach((e)=>{
+                if(e.innerText == "null")
+                    e.innerHTML="";
+        });
+    }
+</script>

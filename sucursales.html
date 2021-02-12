@@ -1,0 +1,153 @@
+<style>
+</style>
+<div class="jumbotron py-3 px-1">
+    <h3 class="text-center my-3">Gestión de Sucursales</h3>
+    <div class="form-group">
+        <label for="selsuc">Sucursal</label>
+        <select class="form-control" id="selsuc" title="Elegir Sucursal" onchange="cambioSel(this)"></select>
+    </div>
+    <div class="d-none" id="formucompleto">
+        <div class="form-group">
+            <label>Nombre de la Sucursal</label>
+            <input type="text" class="form-control" id="nombresuc" name="nombre" maxlength="100" placeholder="Ingresar nombre de la sucursal." title="Nombre de la Sucursal"/>
+        </div>    
+        <div class="form-group">
+            <label>Teléfono</label>
+            <input type="tel" class="form-control" id="telsuc" name="telefono" maxlength="12" placeholder="Teléfono de la sucursal." title="Teléfono de la Sucursal"/>
+        </div>    
+        <div class="form-group">
+            <label>Dirección</label>
+            <textarea class="form-control" id="diresuc" name="direccion" maxlength="250" placeholder="Ingresar Dirección de la sucursal." title="Dirección de la Sucursal"></textarea>
+        </div>    
+        <div class="form-group">
+            <label>Ciudad</label>
+            <input type="text" class="form-control" id="ciudadsuc" name="ciudad" maxlength="100" placeholder="Ciudad" title="Ciudad"/>
+        </div>
+        <div class="row">
+            <div class="col">
+                <div class="form-group">
+                    <label>Latitud</label>
+                    <input type="text" class="form-control" id="latsuc" name="lat" maxlength="20" placeholder="Latitud para mapa" title="Latitud"/>
+                </div>            
+            </div>
+            <div class="col">
+                <div class="form-group">
+                    <label>Longitud</label>
+                    <input type="text" class="form-control" id="lngsuc" name="lng" maxlength="20" placeholder="Longitud para mapa" title="Longitud"/>
+                </div>                        
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Clientes admitidos en el local</label>
+            <input type="number" class="form-control" id="admitidos" name="admitidos" max="100" placeholder="Cantidad de clientes admitidos" title="Clientes admitidos en el local en simultáneo"/>
+        </div>
+        <div class="text-center my-3"><button class="btn btn-lg btn-info" onclick="guardotodo()"><i class="fas fa-check"></i> Guardar</button></div>
+    </div>
+</div>
+<script>
+    var sucursales=[];
+    var sessdata=localStorage.getItem("sessdata");
+    var data={tipo:"sucursales", sessdata:sessdata};
+    if(sessdata != null){
+        sessdata=JSON.parse(localStorage.getItem("sessdata"));
+    }
+
+    $.ajax({
+        url:"jsonabm.php",
+        type:"POST",
+        data:data
+    }).done((response)=>{
+        console.log(response);
+        var cad='<option value="">Elegir</option>';
+        if(response.tipo === "sucursales"){
+            var resp=response.data;
+			resp.forEach(el => {
+				cad+='<option value="'+el.id+'">'+el.nombre+'</option>';
+            });
+            sucursales=resp;
+        }
+        cad+='<option value="1000">Agregar</option>';
+        $("#selsuc").html(cad);
+
+        if(typeof sessdata.nivel !== "undefined"){
+            if(sessdata.nivel == "Sucursal" )
+                $("#selsuc").val(sessdata.sucursal).trigger("change").prop("disabled",true);
+        }
+    });
+
+    function cambioSel(el){
+        if(el.value === "1000"){
+            //Nueva
+            $("#formucompleto").find(".form-control").val('');
+            $("#formucompleto").removeClass("d-none");
+        }else if(el.value != "1000" && el.value != ""){
+            //Edito Suc.
+            var suc={};
+            for(var i in sucursales){
+                if(sucursales[i].id == el.value){
+                    suc=sucursales[i];
+                    break;
+                }
+            }
+            $("#nombresuc").val(suc.nombre);
+            $("#diresuc").val(suc.direccion);
+            $("#ciudadsuc").val(suc.ciudad);
+            $("#telsuc").val(suc.telefono);
+            $("#latsuc").val(suc.lat);
+            $("#lngsuc").val(suc.lng);
+            $("#admitidos").val(suc.admitidos);
+            $("#formucompleto").removeClass("d-none");
+        }else{
+            $("#formucompleto").addClass("d-none");           
+        }
+    }
+
+
+    function guardotodo(){
+        var obj={};
+        var incompleto=false;        
+        $("#formucompleto").find(".form-control").each(function(){
+            if($(this).val() == ""){
+                incompleto=true;
+            }
+            obj[$(this).prop("name")]=$(this).val();
+        });
+        if(incompleto){
+            alerta("Atención", "Hay campos vacíos. Por favor revisar.");
+            return;
+        }
+        var data={};
+        if($("#selsuc").val() === "1000"){
+            //insert
+            obj["nombre"]=$("#nombresuc").val();
+            data["op"]="ins";
+            data["tabla"]="sucursales";
+            data["parametros"]=obj;
+        }else if($("#selsuc").val() != "1000" && $("#selsuc").val() != ""){
+            //edit
+            var data={};
+            obj["id"]=$("#selsuc").val();
+            data["op"]="upd";
+            data["tabla"]="sucursales";
+            data["set"]="nombre=:nombre,direccion=:direccion,ciudad=:ciudad,telefono=:telefono,lat=:lat,lng=:lng,admitidos=:admitidos";
+            data["filtro"]="id=:id";
+            data["parametros"]=obj;
+        }
+
+        $.ajax({
+            url:"jsonedit.php",
+            type:"POST",
+            data:data
+        }).done(function(resp){
+            console.log("resp");
+            console.log(resp);
+            if(resp.rta === "OK"){
+                alert("Sucursal guardada correctamente.");
+                location.reload();
+            }else{
+                alerta("Atención", "Error al guardar. Recargar página y reintentar.");
+            }
+        });
+    }
+
+</script>

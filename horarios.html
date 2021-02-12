@@ -1,0 +1,156 @@
+	<style>
+	</style>
+	
+	<div class="jumbotron py-3" id="continterno">
+		<h3 class="text-center my-3">Horarios de Atención</h3>
+		<div class="form-group">
+			<label>Sucursal</label>
+			<select class="form-control" id="selsuc" title="Elegir Sucursal" onchange="cambioSel(this)"></select>
+		</div>
+		<br>
+		<label>Horarios de Atención</label>
+		<table class="table table-bordered table-condensed table-sm text-center" id="tablahorarios">
+			<thead class="thead-dark"><tr><th>Lun</th><th>Mar</th><th>Mie</th><th>Jue</th><th>Vie</th><th>Sab</th><th>Dom</th><th>Hora Apertura</th><th>Hora Cierre</th><th>Borrar</th></tr></thead>
+			<tbody class="bg-white"></tbody>
+			<tfoot><tr><td colspan="10" class="text-center"><button class="btn btn-info"  onclick="addhorario()"><i class="fas fa-plus"></i></button></td></tr></tfoot>
+		</table>
+	</div>
+	<div class="text-center">
+		<button type="button" class="btn btn-primary btn-lg center-block" id="guardar" onclick="guardatodo()"><span class="fa fa-check"></span> Guardar</button>
+	</div>						
+		
+	<script>
+		var sucursales=[];
+		var sessdata=localStorage.getItem("sessdata");
+		var data={tipo:"sucursales",sessdata};
+
+		if(sessdata != null)
+			sessdata=JSON.parse(sessdata);
+
+		$.ajax({
+			url:"jsonabm.php",
+			type:"POST",
+			data:data
+		}).done((response)=>{
+			console.log(response);
+			var cad='<option value="">Elegir</option>';
+			if(response.tipo === "sucursales"){
+				var resp=response.data;
+				resp.forEach(el => {
+					cad+='<option value="'+el.id+'">'+el.nombre+'</option>';
+				});
+				sucursales=resp;
+			}
+			$("#selsuc").html(cad);
+			if(typeof sessdata.nivel !== "undefined"){
+            	if(sessdata.nivel == "Sucursal" )
+                	$("#selsuc").val(sessdata.sucursal).trigger("change").prop("disabled",true);
+        	}
+		});
+
+
+		function cambioSel(){
+			var data={tipo:"horarios",idsuc:$("#selsuc").val()};
+			$.ajax({
+				url:"jsonabm.php",
+				type:"POST",
+				data:data
+			}).done((response)=>{
+				console.log("response");
+				console.log(response);
+				var h=response.data.horarios_suc;
+				var cad='';
+				for(var i in h){
+					cad+='<tr><td>'+b2cbox(h[i],"lun")+'</td><td>'+b2cbox(h[i],"mar")+'</td><td>'+b2cbox(h[i],"mie")+'</td><td>'+b2cbox(h[i],"jue")+'</td>';
+					cad+='<td>'+b2cbox(h[i],"vie")+'</td><td>'+b2cbox(h[i],"sab")+'</td><td>'+b2cbox(h[i],"dom")+'</td>';
+					cad+='<td>'+h2input(h[i], "abre")+'</td><td>'+h2input(h[i], "cierra")+'</td><td><button class="btn btn-danger" onclick="borrafila(this)"><i class="fas fa-trash"></i></button></td></tr>';
+				}
+				$("#tablahorarios tbody").empty().append(cad);
+			});
+		}
+
+
+		function b2cbox(b,dia){
+			return '<input type="checkbox" data-dia="'+dia+'" '+((b[dia] == 1)?('checked'):(''))+'/>';
+		}
+		function h2input(h,tipo){
+			return '<input type="text" class="form-control inputhora" data-campo="'+tipo+'" value="'+h[tipo].substr(0,5)+'" placeholder="Hora en formato 24hs. Ej. 13:30"/>';
+		}
+		
+		function addhorario(){
+			console.log("addhorario");
+			var cad='<tr><td><input type="checkbox" data-dia="lun"></td><td><input type="checkbox" data-dia="mar"></td>';
+				cad+='<td><input type="checkbox" data-dia="mie"></td><td><input type="checkbox" data-dia="jue"></td><td><input type="checkbox" data-dia="vie"></td>';
+				cad+='<td><input type="checkbox" data-dia="sab"></td><td><input type="checkbox" data-dia="dom"></td><td><input type="text" maxlength="5" data-campo="abre" class="form-control inputhora" placeholder="Hora apertura, por ej. 09:00"></td>';
+				cad+='<td><input type="text" maxlength="5" class="form-control inputhora" data-campo="cierra" placeholder="Hora cierre, por ej. 20:00"></td><td><button class="btn btn-danger" onclick="borrafila(this)"><i class="fas fa-trash"></i></button></td></tr>';
+				$("#tablahorarios tbody").append(cad);
+		}
+
+
+		function borrafila(el){
+			$(el).parents("tr").remove();
+		}
+
+
+		function guardatodo(){
+			//Validar
+			if($("#selsuc").val() == ""){
+				alerta("Error", "Debe elegir una sucursal");				
+			}
+
+			var incompleto=false;
+			$("#continterno input:text").each(function(){
+				if($(this).val() == ""){
+					incompleto=true;
+					return false;
+				}
+			});
+
+			if(incompleto){
+				alerta("Atención","Faltan completar datos. Revisar.");
+				return;
+			}
+
+			var obj={};
+			obj["sucursal"]=$("#selsuc").val();
+			//relevar cada fila	y enviar a jsonhorarios.php
+			var h=[];
+			$("#tablahorarios tbody tr").each(function(){
+				var dias={};
+				var abre="";
+				var cierra="";
+				$(this).find("input").each(function(){
+					if($(this).attr("type") == "checkbox")
+						dias[$(this).data("dia")]=$(this).is(":checked")?1:0;
+					else if($(this).attr("type") == "text" && $(this).data("campo") == "abre")
+						abre=$(this).val();
+					else if($(this).attr("type") == "text" && $(this).data("campo") == "cierra")
+						cierra=$(this).val();
+				});
+				h.push({abre:abre,cierra:cierra,dias:dias});
+			});
+			obj["horarios"]=h;
+			$.ajax({
+				url:"horarios2db.php",
+				type:"POST",
+				data:obj
+			}).done(function(resp){
+				console.log("resp");
+				console.log(resp);
+				alerta("Atención","Datos guardados correctamente.");
+			});
+
+		}
+
+
+		function hora2Int(h){
+			var H0=8;
+			var x=h.split(":");
+			return (parseInt(x[0])-H0)*12+parseInt(x[1])/5;
+		}
+	
+
+
+		
+	</script>
+	

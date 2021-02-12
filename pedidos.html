@@ -1,0 +1,423 @@
+<style>
+    .btncuando{
+        width: 33%;
+    }
+    #fecha{
+        border:none;
+        height: 330px;
+    }
+    #modalbody .btn.active{
+        background-color: yellow;
+        color:#333;
+    }
+    @media (max-width:750px){
+        #fecha{
+           height: 210px;
+        }
+    }
+</style>
+<link rel="stylesheet" href="css/datepicker.css">
+<script src="js/bsdatepicker.js"></script>
+<div class="alert alert-warning alert-dismissible fade show d-none" role="alert" id="alertmsg">
+    <strong>Atención: </strong> Ya tiene turnos pedidos. <a href="index.html?p=espera">Click acá para verlos.</a>
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+      <span aria-hidden="true">&times;</span>
+    </button>
+</div>
+<div class="jumbotron py-3">
+    <h3 class="text-center" id="sucursal" data-idSucursal="">Pedido de Turnos</h3>
+    <form id="formu">
+        <div class="form-group">
+            <label>Sucursal</label>
+            <select class="form-control" id="selsuc"></select>
+        </div>
+        <div class="form-group d-none">
+            <label>Tipo de Turno</label>
+            <select class="form-control" id="selfila"></select>
+        </div>
+        <div class="form-group d-none">
+            <label>Código de retiro</label>
+            <input type="text" class="form-control" id="codretiro" placeholder="Ingresar código para agilizar trámite"/>
+        </div>
+        <div class="form-group d-none" id="cuando">
+            <label>Cuándo?</label><br>
+            <div class="btn-group w-100" role="group" aria-label="Cuándo">
+                <button type="button" class="btn btn-lg btn-warning btncuando d-none" id="btnahora">Ahora!</button>
+                <button type="button" class="btn btn-lg btn-success btncuando d-none" id="btnhoy">Hoy</button>
+                <button type="button" class="btn btn-lg btn-primary btncuando" id="btnotrodia">Otro día</button>    
+            </div>
+        </div>
+    </form>
+</div>
+<script>
+
+    $("#navbarSupportedContent").addClass("d-none");
+    $("#logout").addClass("d-none");
+
+    const sucursal=document.querySelector("#sucursal");
+    const selfila=document.querySelector("#selfila");
+    const formu=document.querySelector("#formu");
+    const padturno=document.querySelector("#padturno");
+    const tiempo=document.querySelector("#tiempo");
+    const codturno=document.querySelector("#codturno");
+    const puestoNombre={null:""};
+    let arrsuc=[];
+    let optsuc='<option value="">Elegir</option>';
+    let codretiro="";
+    let suc={};
+    let horadispo={};
+    let disponibles=[];
+    let sessdata={};
+
+    if(localStorage.getItem("sessdata") != null)
+        sessdata=JSON.parse(localStorage.getItem("sessdata"));
+
+    if(localStorage.getItem("turnospedidos") != []){
+        var tp=localStorage.getItem("turnospedidos");
+        if(tp != null && tp != "[]"){
+            tp=JSON.parse(tp);
+            if(typeof tp[0].horapedidox !== "undefined"){
+                var d=new Date();
+                d.setHours(0,0,0,0);
+                console.log(tp[0].horapedidox);
+                if(d.getTime() <  tp[0].horapedidox && tp[0].estado != 'Atendido')
+                    $("#alertmsg").removeClass("d-none");
+            }
+        }
+    }
+
+    fetch("jsonsucursales.php")
+    .then((res)=>res.json())
+    .then((json)=>{
+        json.forEach((s)=>{
+            optsuc+='<option value="'+s.id+'">'+s.nombre+'</option>';
+        });
+        arrsuc=json;
+        $("#selsuc").empty().append(optsuc);
+/*//No se porque puse esto que ahora esta comentado...
+        if(typeof sessdata.nivel !== "undefined"){
+            if(sessdata.nivel === "Sucursal"){
+                $("#selsuc").val(sessdata.sucursal).trigger("change").prop("disabled",true);
+            }
+        }
+*/
+        let objurl=getUrlVars();
+        if(typeof objurl.sucursal !== "undefined"){
+            console.log(objurl.p);
+            $("#selsuc").val(objurl.sucursal).trigger("change").prop("disabled",true);
+        }
+    })
+    .catch((error)=>{alerta("Error","Error al cargar la pagina. Por favor, llame a la sucursal")});
+
+
+    $("#selsuc").change(function(){
+        if($(this).val() == "" ){
+            location.reload();                        
+        }
+        if(!$("#selfila").parent().hasClass("d-none")){
+            $("#codretiro").parent().addClass("d-none");
+        }
+
+        arrsuc.forEach((s)=>{
+            if(s.id == $(this).val()){
+                suc=s;
+            }
+        });
+        sucursal.dataset.idSucursal=suc.id;
+        let cad='<option value="">Elegir</option>';
+        for(let i in suc.filas){
+            if(suc.filas[i].tipo != "Manual")
+                cad+='<option value="'+suc.filas[i].id+'">'+suc.filas[i].nombre+'</option>';
+        }
+        selfila.innerHTML=cad;
+        $("#selfila").parent().removeClass("d-none");
+        $("#cuando").addClass("d-none");
+
+        $.ajax({
+            url:"jsonhoradispo.php?sucursal="+$(this).val()
+        }).done(function(resp){
+            if(resp.rta="OK"){
+                horadispo=resp.horadispo;
+            }else{
+                alerta("Error","Error en la aplicación. Por favor llame a la sucursal tel: " + suc.telefono );
+            }
+        });
+
+    });
+
+    $("#selfila").change(function(){
+        if($(this).val() == ""){
+            $("#cuando").addClass("d-none");
+        }else{
+            if($("option:selected",this).text() == "Retiro"){
+                $("#codretiro").parent().removeClass("d-none");
+            }else{
+                $("#codretiro").parent().addClass("d-none");
+            }
+            if(typeof horadispo["abierto"] === undefined){
+                alerta("Error","Error en la aplicación. Por favor llame a la sucursal tel: " + suc.telefono );
+                return;
+            }
+            $("#cuando").removeClass("d-none");
+            if(horadispo["abierto"]){
+                var t=horadispo["tiempocierra"].split(":");
+                if(t[0] > 0 || (t[0] == "00" && t[1] > 30)){
+                    $("#btnahora").removeClass("d-none");
+                }
+                $("#btnhoy").removeClass("d-none");
+            }else if(!horadispo["abierto"] && horadispo["tiempoabre"] != ""){
+                $("#btnahora").addClass("d-none");
+                $("#btnhoy").removeClass("d-none");
+            }else if(!horadispo["abierto"]  && horadispo["tiempoabre"] == ""){
+                $("#btnahora").addClass("d-none");
+                $("#btnhoy").addClass("d-none");
+            }else{
+                alert("Error en la aplicación. Revisar.");
+                console.log(horadispo["abierto"]);
+                console.log(horadispo["tiempoabre"]);
+            }
+        }
+
+    });
+
+
+    $("#btnahora").click(function(event){
+        var s=document.querySelector("#selsuc").value;
+        var f=document.querySelector("#selfila").value;
+        var data={sucursal:s, fila:f};
+
+        if($("#selfila option:selected").text().toLowerCase().indexOf("retiro") != -1){
+            data["codretiro"]=$("#codretiro").val();
+        }
+        guardoTurno(data);
+        event.preventDefault();
+    });
+
+
+    $("#btnhoy").click(function(){
+        $.ajax({
+            url:"jsondisponibles.php?sucursal="+$("#selsuc").val() + "&filas=" + $("#selfila").val()
+        }).done(function(resp){
+            if(resp.rta!="OK"){
+                alerta("Error","Error en la aplicación. Por favor llame a la sucursal tel: " + suc.telefono );
+                return;
+            }
+            disponibles=resp.horarios;
+            let btnlist='';
+            if(disponibles.length == 0){
+                btnlist='<h5>Sin turnos disponibles para hoy</h5>';
+            }else{
+                disponibles.forEach(el => {btnlist += '<button type="button" class="btn btn-sm btn-info m-1 horaturno">' + el + '</button>'});
+            }
+        
+            $("#modaltitu").html("Elegir la hora del Turno");
+            $("#modalbody").html(btnlist);
+            $("#modalaceptar").removeClass("d-none").on("click",function(event){
+                if(disponibles.length == 0){
+                    $("#modal").modal("toggle");
+                    return;
+                }
+                var h="";
+                h=$("#modalbody").find(".btn.active").text();
+                if(h == ""){
+                    alert("Debe seleccionar una hora");
+                    return;
+                }
+
+                var s=document.querySelector("#selsuc").value;
+                var f=document.querySelector("#selfila").value;
+                var data={sucursal:s, fila:f};
+
+                if($("#selfila option:selected").text().toLowerCase().indexOf("retiro") != -1){
+                    data["codretiro"]=$("#codretiro").val();
+                }
+
+                var dt=new Date();
+                var diaelegido=`${dt.getFullYear().toString().padStart(4, '0')}-${(dt.getMonth()+1).toString().padStart(2, '0')}-${dt.getDate().toString().padStart(2, '0')}`;
+                data["fechahora"]=diaelegido + " " + h + ":00";           
+                guardoTurno(data);
+                $("#modal").modal("toggle");
+                event.sto();
+            });
+            $("#modal").modal("toggle");
+
+        });
+    });
+
+
+    $(document).on("click",".horaturno",function(){
+        $(this).siblings().removeClass("active");
+        $(this).addClass("active");
+    });
+
+
+    $("#btnotrodia").click(function(){
+        $("#modaltitu").html("Elegir la fecha y hora del Turno");
+        let html=`<div class="form-group"><label>Fecha del turno</label><div class="form-control" id="fecha"></div></div>`;
+        html+=`<div class="form-group"><label>Turnos Disponibles</label>`;
+        html+=`<div id="btnlist"></div></div>`
+        $("#modalbody").html(html);
+        setCalendario();
+        $("#modalaceptar").removeClass("d-none").on("click",function(event){
+            // ver boton de hora apretado. si no hay ninguno apretado salir
+            var h="";
+            h=$("#btnlist").find(".btn.active").text();
+            if(h == ""){
+                alert("Debe seleccionar una hora");
+                return;
+            }
+
+            var fechaturno=$("#fecha").data("diaelegido");
+            if(fechaturno == "")
+                return;
+
+            var s=document.querySelector("#selsuc").value;
+            var f=document.querySelector("#selfila").value;
+            var data={sucursal:s, fila:f };
+
+            if($("#selfila option:selected").text().toLowerCase().indexOf("retiro") != -1){
+                data["codretiro"]=$("#codretiro").val();
+            }
+
+            data["fechahora"]=`${fechaturno} ${h}:00`;
+            guardoTurno(data);
+            $("#modal").modal("toggle");
+            event.preventDefault();
+            event.stopPropagation();
+        });
+        $("#modal").modal("toggle");
+    });
+
+
+
+
+	function setCalendario(){
+        const active_dates=horadispo.active_dates;
+        const today = new Date();
+        const desde = new Date(today);
+        desde.setDate(desde.getDate() + 1); //desde mañana
+        desde.setHours(0,0,0,0);
+        const hasta = new Date(today);
+        hasta.setDate(hasta.getDate() + 30);    // 30 dias{…}
+        hasta.setHours(0,0,0,0);
+        const daysOfWeekDisabled=["0","1","2","3","4","5","6"].filter((dia)=>{
+                return !active_dates.includes(dia);
+            });
+
+        $('#fecha').datepicker('remove');
+        $('#fecha').datepicker({
+            format: "dd/mm/yyyy",
+            autoclose: true,
+            maxViewMode: 1,
+            todayHighlight: true,
+            startDate: desde,
+            endDate: hasta,
+            daysOfWeekDisabled: daysOfWeekDisabled,
+            beforeShowDay: function(date){
+                var d = date;
+                var curr_date = d.getDate();
+                var curr_month = d.getMonth() + 1; //Months are zero based
+                var curr_year = d.getFullYear();
+                var formattedDate = curr_date + "/" + curr_month + "/" + curr_year
+
+                if ($.inArray(formattedDate, active_dates) != -1){
+                    return {
+                    classes: 'activeClass'
+                    };
+                }
+                return;
+            }
+        }).on("changeDate",function(e){
+            var dia=e.date.toString();
+            var d=new Date(dia); 
+            var day = d.getDate();
+            var month = d.getMonth() + 1;
+            var year = d.getFullYear();
+//            var wday=d.getDay();
+//            var rangohora=horadispo.horarios_suc[wday];
+            month=((parseInt(month) < 10)?("0" + month):(month));
+            day=((parseInt(day) < 10)?("0" + day):(day));
+            diaelegido=`${year}-${month}-${day}`;
+            $("#fecha").data("diaelegido",diaelegido);
+            $.ajax({
+                url:"jsondisponibles.php?sucursal="+$("#selsuc").val() + "&filas=" + $("#selfila").val() + "&dia=" +  diaelegido
+            }).done(function(resp){
+                console.log(resp);
+                if(resp.rta!="OK"){
+                    alert("Error en la aplicación. Por favor llame a la sucursal tel: " + suc.telefono );
+                    return;
+                }
+                disponibles=resp.horarios;
+                let btnlist='';
+                if(disponibles.length == 0){
+                    btnlist='<h5>Sin turnos disponibles para hoy</h5>';
+                }else{
+                    disponibles.forEach(el => {btnlist += '<button type="button" class="btn btn-sm btn-info m-1 horaturno">' + el + '</button>'});
+                }
+                $("#btnlist").html(btnlist);
+            });
+
+
+//            $("#horaturno").data("rangohorario",JSON.stringify(rangohora)).data("diaelegido",diaelegido);
+//            var t="Sucursal atiende de <strong>" + rangohora[0].abre.substr(0,5) + " a " + rangohora[0].cierra.substr(0,5) + "</strong>" +  ((typeof rangohora[1] !== "undefined")?(" y de <strong>" + rangohora[1].abre.substr(0,5) + " a " + rangohora[1].cierra.substr(0,5) + " hs</strong>"):(""));
+//            $("#spanhora").html(t);
+
+        });
+        $('#fecha').datepicker('update');
+    }
+
+
+    function hora2Float(hora){
+        if(typeof hora === "undefined"){
+            alert("todomal")
+            return false;
+        }
+        if(hora.length == 0){
+            console.error("hora nula");
+            return false;
+        }
+        var hh=parseInt(hora.substr(0,2));
+        var mm=parseInt(hora.substr(3,2));
+        return hh+mm/60;
+        
+    }
+
+
+
+    function guardoTurno(data){
+        let turnospedidos=localStorage.getItem("turnospedidos");
+        if(turnospedidos == null || turnospedidos == "[]"){
+            turnospedidos=[];
+        }else{
+            turnospedidos=JSON.parse(turnospedidos);
+            data["usr_id"]=turnospedidos[0].usr_id;
+        }
+        console.log("data addturno");
+        console.log(data);
+        $.ajax({
+            url:"addturno.php",
+            type:"POST",
+            data:data
+        }).done((resp)=>{
+            if(resp.rta == "OK"){
+                let obj={};
+                obj["codigo"]=resp.codigo;
+                obj["espera"]=resp.espera;
+                obj["usr_id"]=resp.usr_id;
+                let d=new Date();
+                obj["horapedidox"]=d.getTime();
+                turnospedidos.push(obj);
+                localStorage.setItem("turnospedidos",JSON.stringify(turnospedidos));
+                location.assign("index.html?p=espera");
+            }else{
+                if(resp.msg === "Horario pasado"){
+                    alerta("Error","Revisar que la hora elegida esté en el horario de atención.");
+                }else{
+                    alerta("Atención","No se pudo sacar el turno. Llamenos al " + suc.telefono);
+                }
+                return;
+            }
+        });
+    }
+
+</script>

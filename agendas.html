@@ -1,0 +1,172 @@
+<link rel="stylesheet" href="css/datepicker.css">
+<script src="js/bsdatepicker.js"></script>
+<style>
+    #criterio .active{
+        background-color: yellow;
+        color:black;
+    }
+</style>
+<div class="jumbotron py-3">
+    <h3 class="text-center my-3">Turnos Agendados</h3>
+    <div class="form-group">
+        <label>Sucursal</label>
+        <select class="form-control" id="selsuc"></select>
+    </div>
+    <div class="form-group">
+        <label>Agenda</label>
+        <select class="form-control" id="agenda" disabled></select>
+    </div>
+    <div class="row m-0 p-0 d-none" id="contagenda">
+        <div class="col m-0 p-0"><label>Seleccione la fecha</label><div id="fecha"></div></div>
+        <div class="col m-0 p-0"><label>Lista de Turnos</label><div id="criterio">
+            <table class="table table-condensed table-bordered" id="turnosdados"><thead class="thead-dark"><tr><th>Hora</th><th>Nombre</th><th>Teléfono</th><th>Estado</th></tr></thead><tbody></tbody></table></div></div>
+    </div>
+</div>
+<script>
+        var diaelegido;
+        var turnosDados=[];
+        var horarios=[];
+        var todo={};
+
+        $.ajax({
+            url:"jsonabm.php?tipo=agendas"
+        }).done(function(response){
+            console.log(response.data);
+            todo=response.data;
+            let resp=response.data.sucursales;
+            var cad=resp.reduce(function(opt,val){
+                opt+='<option value="'+val.id+'">'+val.nombre+'</option>';
+                return opt;
+            },'<option value="">Elegir</option>');
+            $("#selsuc").empty().append(cad);
+        });
+
+
+		$("#selsuc").change(function(){
+			var suc=$(this).val();
+			$(".conthora").empty();
+			if(suc == ""){
+				return;
+			}
+			var puestos_suc=todo.puestos_suc;
+			var optpuestosuc='<option value="">Elegir</option>';
+			puestos_suc.forEach((obj)=>{
+				if(obj.sucursal == suc){
+					if(obj.filas == todo.filas[0].id)
+						optpuestosuc+='<option value="'+obj.id+'">'+obj.nombre+'</option>';
+				}
+			});
+			console.log("optpuestosuc");
+			console.log(optpuestosuc);
+			$("#agenda").empty().append(optpuestosuc).prop("disabled",false);
+		});
+
+
+
+        $("#agenda").change(function(){
+            if($(this).val() == "")
+                location.reload();
+
+            var p=$(this).val();
+            $("#turnosdados tbody").empty();
+            active_dates=[];
+            $.ajax({
+                url:"jsonabm.php?tipo=horariosagendas&puesto=" + p,
+                type:"GET"
+            }).done(function(response){
+                console.log(response.data);
+                horarios=response.data.horariosagendas;
+                turnosDados=response.data.turnosagendados;
+                horarios.forEach((e)=>{
+                    active_dates.push(e.dia);
+                });
+                setCalendario(active_dates);
+                $("#contagenda").removeClass("d-none");
+            });
+        });
+
+
+        function setCalendario(active_dates){
+            const today = new Date();
+            const desde = new Date(today);
+            desde.setDate(desde.getDate());
+            desde.setHours(0,0,0,0);
+            const hasta = new Date(today);
+            hasta.setDate(hasta.getDate() + 30);    // 30 dias
+            hasta.setHours(0,0,0,0);
+            const daysOfWeekDisabled=["0","1","2","3","4","5","6","7"].filter((dia)=>{
+                return !active_dates.includes(dia);
+            });
+
+            $('#fecha').datepicker('remove');
+            $('#fecha').datepicker({
+                format: "dd/mm/yyyy",
+                autoclose: true,
+                maxViewMode: 1,
+                todayHighlight: false,
+                startDate: desde,
+                endDate: hasta,
+                daysOfWeekDisabled: daysOfWeekDisabled.join(","),
+                beforeShowDay: function(date){
+                    var d = date;
+                    var curr_date = d.getDate();
+                    var curr_month = d.getMonth() + 1; //Months are zero based
+                    var curr_year = d.getFullYear();
+                    var formattedDate = curr_date + "/" + curr_month + "/" + curr_year
+                    if ($.inArray(formattedDate, active_dates) != -1){
+                        return {
+                        classes: 'activeClass'
+                        };
+                    }
+                    return;
+                }
+            }).on("changeDate",function(e){
+                    var dia=e.date.toString();
+                    var d=new Date(dia);
+ 
+                    var day = d.getDate();
+                    var month = d.getMonth() + 1;
+                    var year = d.getFullYear();
+                    month=((parseInt(month) < 10)?("0" + month):(month));
+                    day=((parseInt(day) < 10)?("0" + day):(day));
+                    var dd=`${day}/${month}/${year}`;
+                    diaelegido=`${year}-${month}-${day}`;
+
+                    var wd=d.getDay();
+                    var p=$("#puesto").val();
+                    var cont='';
+                    var cad='';
+                    console.log("turnosDados");
+                    console.log(turnosDados);
+                    console.log("dd");
+                    console.log(dd);
+
+                    turnosDados.forEach((e)=>{
+                        console.log("e.dia");
+                        console.log(e.dia);
+                        if(e.dia == dd)
+                           cad+='<tr><td>'+e.hora.substr(0,5)+'</td><td>'+e.nombre+'</td><td>'+e.telefono+'</td><td>'+e.estado+'</td></tr>';
+                    });
+                    console.log("cad");
+                    console.log(cad);
+                    $("#turnosdados tbody").empty().append(cad);
+            });
+            $('#fecha').datepicker('update');
+        }
+
+
+
+        function hora2Float(h){
+            var x=h.split(":");
+            return parseInt(x[0]) + parseFloat(x[1]/60);
+        }
+
+        function float2Hora(f){
+            f+="";
+            if(!f.includes("."))
+                return (f<10?("0"+f):(f))+":00";
+            var h=f.split(".");
+            return ((h[0] < 10)?("0" + h[0]):(h[0])) + ":" + (parseInt(h[1])*6).toString().substr(0,2);
+        }
+
+</script>
